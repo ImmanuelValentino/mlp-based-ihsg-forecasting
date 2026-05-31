@@ -1,6 +1,9 @@
 import numpy as np
 import pandas as pd
+import warnings
 
+# Mengabaikan warning korelasi Pandas agar terminal tetap bersih
+warnings.filterwarnings('ignore', category=RuntimeWarning)
 
 def evaluate(prediction, ground_truth, mask, report=False):
     assert ground_truth.shape == prediction.shape, 'shape mis-match'
@@ -70,7 +73,8 @@ def evaluate(prediction, ground_truth, mask, report=False):
         else:
             mrr_top += 1.0 / top1_pos_in_gt
 
-        real_ret_rat_top = ground_truth[list(pre_top1)[0]][i]
+        # Penambahan validasi keamanan list untuk menghindari index out of bounds
+        real_ret_rat_top = ground_truth[list(pre_top1)[0]][i] if pre_top1 else 0
         bt_long += real_ret_rat_top
         gt_irr = 0.0
 
@@ -81,7 +85,7 @@ def evaluate(prediction, ground_truth, mask, report=False):
         for pre in pre_top5:
             real_ret_rat_top5 += ground_truth[pre][i]
         irr += real_ret_rat_top5
-        real_ret_rat_top5 /= 5
+        real_ret_rat_top5 /= 5 if len(pre_top5) > 0 else 1
         bt_long5 += real_ret_rat_top5
 
         prec = 0.0
@@ -89,17 +93,24 @@ def evaluate(prediction, ground_truth, mask, report=False):
         for pre in pre_top10:
             real_ret_rat_top10 += ground_truth[pre][i]
             prec += (ground_truth[pre][i] >= 0)
-        prec_10.append(prec / 10)
-        real_ret_rat_top10 /= 10
+            
+        prec_10.append(prec / 10 if len(pre_top10) > 0 else 0)
+        real_ret_rat_top10 /= 10 if len(pre_top10) > 0 else 1
         bt_long10 += real_ret_rat_top10
         sharpe_li5.append(real_ret_rat_top5)
 
-    performance['IC'] = np.mean(ic)
-    performance['RIC'] = np.mean(ic) / np.std(ic)
+    # --- PROTEKSI MATEMATIKA YANG AMAN ---
+    mean_ic = np.nanmean(ic)
+    std_ic = np.nanstd(ic)
+    
+    performance['IC'] = mean_ic
+    # Epsilon 1e-8 untuk mencegah division by zero
+    performance['RIC'] = mean_ic / (std_ic if std_ic > 1e-8 else 1e-8)
+    
     sharpe_li5 = np.array(sharpe_li5)
-    performance['sharpe5'] = (np.mean(sharpe_li5)/np.std(sharpe_li5))*15.87
-    performance['prec_10'] = np.mean(prec_10)
+    std_sharpe = np.nanstd(sharpe_li5)
+    performance['sharpe5'] = (np.nanmean(sharpe_li5) / (std_sharpe if std_sharpe > 1e-8 else 1e-8)) * 15.87
+    
+    performance['prec_10'] = np.nanmean(prec_10)
+    
     return performance
-
-
-

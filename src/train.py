@@ -13,14 +13,14 @@ torch.random.manual_seed(12345678)
 device = torch.device("cuda") if torch.cuda.is_available() else 'cpu'
 
 data_path = '../dataset'
-market_name = 'NASDAQ'
+market_name = 'IDX_ALL'
 relation_name = 'wikidata'
-stock_num = 1026
+stock_num = 958
 lookback_length = 16
 epochs = 100
-valid_index = 756
-test_index = 1008
-fea_num = 5
+valid_index = 1100
+test_index = 1350
+fea_num = 6
 market_num = 20
 steps = 1
 learning_rate = 0.001
@@ -42,13 +42,15 @@ if market_name == "SP500":
                                    data[ticket][row - steps][-1]
 else:
     with open(os.path.join(dataset_path, "eod_data.pkl"), "rb") as f:
-        eod_data = pickle.load(f)
+        # Ubah dari (hari, saham, fitur) -> (saham, hari, fitur)
+        eod_data = pickle.load(f).transpose(1, 0, 2)
     with open(os.path.join(dataset_path, "mask_data.pkl"), "rb") as f:
-        mask_data = pickle.load(f)
+        # Ubah dari (hari, saham) -> (saham, hari)
+        mask_data = pickle.load(f).transpose(1, 0)
     with open(os.path.join(dataset_path, "gt_data.pkl"), "rb") as f:
-        gt_data = pickle.load(f)
+        gt_data = pickle.load(f).transpose(1, 0)
     with open(os.path.join(dataset_path, "price_data.pkl"), "rb") as f:
-        price_data = pickle.load(f)
+        price_data = pickle.load(f).transpose(1, 0)
 
 trade_dates = mask_data.shape[1]
 model = StockMixer(
@@ -64,6 +66,9 @@ best_valid_loss = np.inf
 best_valid_perf = None
 best_test_perf = None
 batch_offsets = np.arange(start=0, stop=valid_index, dtype=int)
+
+patience = 5            # Batas toleransi berapa epoch kita sabar menunggu performa naik lagi
+patience_counter = 0
 
 
 def validate(start_index, end_index):
@@ -146,6 +151,23 @@ for epoch in range(epochs):
         best_valid_loss = val_loss
         best_valid_perf = val_perf
         best_test_perf = test_perf
+
+        if not os.path.exists('models'):
+            os.makedirs('models')
+            
+        model_path = f'models/{market_name}_best.pth'
+        torch.save(model.state_dict(), model_path)
+        print(f'---> Model terbaik disimpan di: {model_path}')
+    else:
+        # Jika performa lebih buruk dari rekor terbaik, tambah angka pelanggaran
+        patience_counter += 1
+        print(f'---> [WARNING] Performa memburuk. Kesabaran: {patience_counter}/{patience}')
+        
+        # Jika sudah jelek berturut-turut melampaui batas toleransi, hentikan paksa!
+        if patience_counter >= patience:
+            print(f"\n!!! EARLY STOPPING DIBERLAKUKAN !!!")
+            print(f"Training dihentikan secara paksa pada Epoch {epoch + 1} untuk mencegah overfitting yang makin parah.")
+            break
 
     print('Valid performance:\n', 'mse:{:.2e}, IC:{:.2e}, RIC:{:.2e}, prec@10:{:.2e}, SR:{:.2e}'.format(val_perf['mse'], val_perf['IC'],
                                                      val_perf['RIC'], val_perf['prec_10'], val_perf['sharpe5']))
