@@ -1,4 +1,8 @@
 # Default ignored files
+*.pkl
+dataset/IDX_ALL_V2/
+dataset/IDX_ALL_V3/
+dataset/IDX_ALL/
 /shelf/
 /workspace.xml
 # Editor-based HTTP Client requests
@@ -7,3 +11,4 @@
 /dataSources/
 /dataSources.local.xml
 echo "dataset/" >> .gitignore
+

@@ -1,10 +1,12 @@
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
 import torch
 import pickle
 import os
 import datetime
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
 import yfinance as yf
 from model import StockMixer
 import warnings
@@ -15,17 +17,26 @@ warnings.filterwarnings('ignore')
 MARKET_NAME = 'IDX_ALL_V3'      
 FEA_NUM = 8                     
 LOOKBACK = 16
-MODEL_PATH = f'src/models/{MARKET_NAME}_best.pth'  
-DATA_DIR = f'dataset/{MARKET_NAME}'
-TICKER_FILE = 'ihsg_all.csv'
+
+# Robust paths
+base_dir = os.path.dirname(os.path.abspath(__file__))
+MODEL_PATH = os.path.join(base_dir, 'models', f'{MARKET_NAME}_best.pth')  
+DATA_DIR = os.path.join(base_dir, '..', 'dataset', MARKET_NAME)
+TICKER_FILE = os.path.join(base_dir, '..', 'ihsg_all.csv')
 
 # --- RISK MANAGEMENT ---
 MIN_PRICE = 51                  
 MIN_ADTV_BILLION = 1.0          
 
-today_str = datetime.datetime.now().strftime('%Y-%m-%d')
-OUTPUT_DIR = f'outputs/{today_str}'
+import argparse
+_parser = argparse.ArgumentParser()
+_parser.add_argument('--date', type=str, default=None)
+_args, _ = _parser.parse_known_args()
+
+today_str = _args.date if _args.date else datetime.datetime.now().strftime('%Y-%m-%d')
+OUTPUT_DIR = os.path.join(base_dir, '..', 'outputs', today_str)
 os.makedirs(OUTPUT_DIR, exist_ok=True)
+
 
 def load_tickers(stock_num):
     try:
@@ -123,7 +134,7 @@ def run_inference_v2():
         print("\n[WARNING] Tidak ada satupun saham yang lolos filter likuiditas hari ini.")
         return
 
-    csv_filename = f'{OUTPUT_DIR}/rekomendasi_lengkap_{MARKET_NAME}.csv'
+    csv_filename = os.path.join(OUTPUT_DIR, f'rekomendasi_lengkap_{MARKET_NAME}.csv')
     df_valid_all.to_csv(csv_filename, index=False)
     print(f"\n[SUCCESS] File CSV disimpan di: {csv_filename}")
 
@@ -158,10 +169,10 @@ def run_inference_v2():
                          f'Score: {score_val:.2f}', va='center', ha='left', fontsize=10, fontweight='bold')
 
     plt.tight_layout()
-    png_filename = f'{OUTPUT_DIR}/visualisasi_{MARKET_NAME}.png'
+    png_filename = os.path.join(OUTPUT_DIR, f'visualisasi_{MARKET_NAME}.png')
     plt.savefig(png_filename, dpi=150)
     print(f"[SUCCESS] Gambar Visualisasi disimpan di: {png_filename}")
-    plt.show()
+    plt.close()
 
 if __name__ == "__main__":
     run_inference_v2()

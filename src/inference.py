@@ -1,12 +1,16 @@
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
 import torch
 import pickle
 import os
+import datetime
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
 import yfinance as yf
 from model import StockMixer
 import warnings
+
 
 warnings.filterwarnings('ignore')
 
@@ -15,13 +19,26 @@ MARKET_NAME = 'IDX_ALL'
 STOCK_NUM = 958
 FEA_NUM = 6
 LOOKBACK = 16
-MODEL_PATH = f'models/{MARKET_NAME}_best.pth'  
-DATA_DIR = '../dataset/IDX_ALL'
-TICKER_FILE = '../ihsg_all.csv'
+
+import argparse
+_parser = argparse.ArgumentParser()
+_parser.add_argument('--date', type=str, default=None)
+_args, _ = _parser.parse_known_args()
+
+today_str = _args.date if _args.date else datetime.datetime.now().strftime('%Y-%m-%d')
+OUTPUT_DIR = f'outputs/{today_str}'
+os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+# Robust paths
+base_dir = os.path.dirname(os.path.abspath(__file__))
+MODEL_PATH = os.path.join(base_dir, 'models', f'{MARKET_NAME}_best.pth')  
+DATA_DIR = os.path.join(base_dir, '..', 'dataset', MARKET_NAME)
+TICKER_FILE = os.path.join(base_dir, '..', 'ihsg_all.csv')
 
 # --- RISK MANAGEMENT ---
 MIN_PRICE = 51                  # Hindari saham gocap
 MIN_ADTV_BILLION = 1.0          # Transaksi harian minimal Rp 1 Miliar
+
 
 def load_tickers():
     try:
@@ -57,17 +74,21 @@ def run_inference():
 
     print(f"4. [RISK MANAGEMENT] Memeriksa Likuiditas di Bursa secara massal...")
     # Unduh massal untuk mempercepat waktu
-    yf_data = yf.download(target_tickers, period="5d", group_by='ticker', progress=False)
+    yf_data = yf.download(target_tickers, period="100d", group_by='ticker', progress=False)
 
     valid_stocks = []
     
     for ticker in target_tickers:
         try:
             df_ticker = yf_data[ticker] if len(target_tickers) > 1 else yf_data
-            if df_ticker.empty or df_ticker['Close'].isna().all(): continue
+            if df_ticker.empty or len(df_ticker) < 50: continue
 
+            df_ticker['MA50'] = df_ticker['Close'].rolling(window=50).mean()
             latest_close = float(df_ticker['Close'].iloc[-1])
-            adtv = float((df_ticker['Close'] * df_ticker['Volume']).mean())
+            ma50 = float(df_ticker['MA50'].iloc[-1])
+            
+            recent_5d = df_ticker.tail(5)
+            adtv = float((recent_5d['Close'] * recent_5d['Volume']).mean())
             adtv_billion = adtv / 1_000_000_000 
 
             if latest_close >= MIN_PRICE and adtv_billion >= MIN_ADTV_BILLION:
@@ -75,18 +96,20 @@ def run_inference():
                 valid_stocks.append({
                     'Ticker': ticker,
                     'AI_Score': score,
-                    'Harga_Terakhir': latest_close,
-                    'Trx_Harian_Miliar': round(adtv_billion, 2)
+                    'Harga': latest_close,
+                    'MA50': round(ma50, 1),
+                    'Trx_Miliar': round(adtv_billion, 2)
                 })
-        except:
+        except Exception as e:
             continue
+
 
     df_valid = pd.DataFrame(valid_stocks).sort_values(by='AI_Score', ascending=False).reset_index(drop=True)
     
-    # Simpan SELURUH data valid ke CSV agar bisa dibaca di Excel
-    csv_filename = '../rekomendasi_harian_lengkap.csv'
+    csv_filename = os.path.join(OUTPUT_DIR, 'rekomendasi_lengkap_IDX_ALL.csv')
     df_valid.to_csv(csv_filename, index=False)
     print(f"\n[SUCCESS] Keseluruhan klasemen ({len(df_valid)} saham likuid) berhasil disimpan di: {csv_filename}")
+
 
     # Ekstrak Top 10 (Bullish) dan Bottom 10 (Bearish)
     top_10 = df_valid.head(10)
@@ -118,8 +141,11 @@ def run_inference():
 
     plt.xticks(rotation=45)
     plt.tight_layout()
-    plt.savefig('../top_bottom_prediction.png')
-    plt.show()
+    png_filename = os.path.join(OUTPUT_DIR, 'visualisasi_IDX_ALL.png')
+    plt.savefig(png_filename, dpi=150)
+    print(f"[SUCCESS] Gambar Visualisasi disimpan di: {png_filename}")
+    plt.close()
+
 
 if __name__ == "__main__":
     run_inference()

@@ -9,19 +9,23 @@ warnings.filterwarnings('ignore')
 
 # Konfigurasi
 TICKER_FILE = 'ihsg_all.csv' # Pastikan file ini ada di luar folder src/
-OUTPUT_DIR = '../dataset/IDX_ALL_V2'
+OUTPUT_DIR = 'dataset/IDX_ALL_V2'
 START_DATE = '2018-01-01'
-END_DATE = '2026-05-29'
+END_DATE = '2026-06-11'
 
-def build_dataset_v2():
+def build_dataset_v2(end_date=None):
     os.makedirs(OUTPUT_DIR, exist_ok=True)
+    
+    target_end_date = end_date if end_date else END_DATE
+    print(f"Target End Date untuk V2: {target_end_date}")
     
     print(f"1. Membaca daftar saham dari {TICKER_FILE}...")
     df_tickers = pd.read_csv(TICKER_FILE)
     valid_tickers = df_tickers['Ticker'].dropna().unique().tolist()
     
     print(f"2. Mengunduh data historis untuk {len(valid_tickers)} saham...")
-    all_raw_data = yf.download(valid_tickers, start=START_DATE, end=END_DATE, group_by='ticker', auto_adjust=True, progress=True)
+    all_raw_data = yf.download(valid_tickers, start=START_DATE, end=target_end_date, group_by='ticker', auto_adjust=True, progress=True)
+
     
     # Mencari kalender referensi dari saham paling tua
     longest_ticker = max(valid_tickers, key=lambda t: len(all_raw_data[t].dropna(how='all')) if t in all_raw_data else 0)
@@ -87,4 +91,13 @@ def build_dataset_v2():
     print(f"Penyimpanan selesai di {OUTPUT_DIR}")
 
 if __name__ == '__main__':
-    build_dataset_v2()
+    import argparse
+    import datetime
+    
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--end-date', type=str, default=None, help="End date for the dataset (YYYY-MM-DD)")
+    args = parser.parse_args()
+    
+    # default to today's date if not passed
+    target_date = args.end_date if args.end_date else datetime.datetime.now().strftime('%Y-%m-%d')
+    build_dataset_v2(target_date)

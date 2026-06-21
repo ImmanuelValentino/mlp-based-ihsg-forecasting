@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StockMixer AI Dashboard</title>
+    <!-- Google Fonts: Outfit and Fira Code for Console -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;700&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="app-container">
+        
+        <!-- SIDEBAR -->
+        <aside class="sidebar">
+            <div class="brand">
+                <i class="fa-solid fa-chart-line brand-icon"></i>
+                <h2>StockMixer <span>AI</span></h2>
+            </div>
+            
+            <div class="control-section">
+                <h3>KONTROL PIPELINE</h3>
+                <div class="date-selector">
+                    <label for="pipeline-date"><i class="fa-regular fa-calendar"></i> Tanggal Dataset:</label>
+                    <input type="date" id="pipeline-date">
+                </div>
+                <button id="btn-run-v1" class="btn btn-primary" style="margin-bottom: 12px;">
+                    <i class="fa-solid fa-play"></i> Run Analisis Harian V1
+                </button>
+                <button id="btn-run-v3" class="btn btn-secondary">
+                    <i class="fa-solid fa-play"></i> Run Analisis 3 Harian V3
+                </button>
+            </div>
+            
+            <div class="history-section">
+                <h3>RIWAYAT ANALISIS</h3>
+                <div id="history-loading" class="spinner-small" style="display: none;"></div>
+                <ul id="history-list" class="history-list">
+                    <!-- Loaded dynamically -->
+                </ul>
+            </div>
+            
+            <div class="footer-info">
+                <p>System Version: 1.0 (Fokus V1)</p>
+                <p class="current-time-info"><i class="fa-regular fa-clock"></i> <span id="clock-display">-</span></p>
+            </div>
+
+        </aside>
+
+        <!-- MAIN CONTENT -->
+        <main class="main-content">
+            
+            <!-- HEADER -->
+            <header class="main-header">
+                <div class="header-left">
+                    <h1 id="selected-date-title">Memuat data...</h1>
+                    <p id="selected-date-subtitle">Pilih tanggal dari riwayat atau jalankan pipeline baru</p>
+                </div>
+                
+                <div class="header-right">
+                    <div class="tab-control" id="model-tab-control">
+                        <button class="tab-btn active" data-model="v1">
+                            <i class="fa-solid fa-bolt"></i> Model V1 (1-Day)
+                        </button>
+                        <button class="tab-btn" data-model="v3">
+                            <i class="fa-solid fa-cubes"></i> Model V3 (3-Day)
+                        </button>
+                    </div>
+                </div>
+
+            </header>
+
+            <!-- LIVE CONSOLE LOGS (COLLAPSIBLE) -->
+            <section class="console-section" id="console-section">
+                <div class="console-header" id="console-toggle">
+                    <div class="console-title">
+                        <i class="fa-solid fa-terminal"></i>
+                        <span>Live Terminal Pipeline Logs</span>
+                        <span id="pipeline-badge" class="badge badge-idle">Idle</span>
+                    </div>
+                    <div class="console-actions">
+                        <span class="step-text" id="current-step-text"></span>
+                        <i class="fa-solid fa-chevron-up toggle-icon" id="console-toggle-icon"></i>
+                    </div>
+                </div>
+                <div class="console-body" id="console-body">
+                    <pre id="console-output">Menunggu eksekusi pipeline... Klik "Run Pipeline 1-Click" untuk mulai.</pre>
+                </div>
+            </section>
+
+            <!-- STATS OVERVIEW -->
+            <section class="stats-grid" id="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-icon icon-blue"><i class="fa-solid fa-database"></i></div>
+                    <div class="stat-data">
+                        <div class="stat-value" id="stat-total-tickers">0</div>
+                        <div class="stat-label">Total Saham Lolos Filter</div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon icon-green"><i class="fa-solid fa-circle-arrow-up"></i></div>
+                    <div class="stat-data">
+                        <div class="stat-value" id="stat-bullish-tickers">0</div>
+                        <div class="stat-label">Bullish picks (Uptrend)</div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon icon-red"><i class="fa-solid fa-circle-arrow-down"></i></div>
+                    <div class="stat-data">
+                        <div class="stat-value" id="stat-bearish-tickers">0</div>
+                        <div class="stat-label">Bearish Picks (Sell/Avoid)</div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon icon-gold"><i class="fa-solid fa-trophy"></i></div>
+                    <div class="stat-data">
+                        <div class="stat-value" id="stat-top-score">0.00</div>
+                        <div class="stat-label">AI Conviction Tertinggi</div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- RESULTS WORKSPACE -->
+            <div class="results-workspace" id="results-workspace">
+                
+                <!-- VISUALIZATION GRAPH -->
+                <div class="visualization-card card">
+                    <div class="card-header">
+                        <h3><i class="fa-regular fa-image"></i> Grafik Visualisasi AI Momentum</h3>
+                        <button class="btn btn-icon" id="btn-zoom-image" title="Perbesar Gambar">
+                            <i class="fa-solid fa-magnifying-glass-plus"></i>
+                        </button>
+                    </div>
+                    <div class="card-body img-container" id="visual-img-container">
+                        <!-- Img tags loaded via JS -->
+                        <div class="placeholder-text" id="visual-placeholder">
+                            <i class="fa-regular fa-chart-bar placeholder-icon"></i>
+                            <p>Memuat visualisasi...</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- RECOMMENDATION TABLE -->
+                <div class="table-card card">
+                    <div class="card-header">
+                        <h3><i class="fa-solid fa-list-ol"></i> Daftar Rekomendasi Sinyal Saham</h3>
+                        <div class="table-controls">
+                            <div class="search-box">
+                                <i class="fa-solid fa-magnifying-glass"></i>
+                                <input type="text" id="table-search" placeholder="Cari ticker...">
+                            </div>
+                            <div class="filter-group">
+                                <button class="filter-btn active" data-filter="all">Semua</button>
+                                <button class="filter-btn filter-green" data-filter="bullish"><i class="fa-solid fa-caret-up"></i> Bullish</button>
+                                <button class="filter-btn filter-red" data-filter="bearish"><i class="fa-solid fa-caret-down"></i> Bearish</button>
+                            </div>
+                            <button id="btn-download-csv" class="btn btn-secondary" style="width: auto; padding: 10px 14px; font-size: 13px;" title="Unduh CSV Hasil Rekomendasi">
+                                <i class="fa-solid fa-download"></i> Unduh CSV
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body table-responsive">
+                        <table class="recommendations-table" id="recommendations-table">
+                            <thead>
+                                <tr>
+                                    <th>Rank</th>
+                                    <th>Ticker</th>
+                                    <th class="sortable" data-sort="AI_Score">AI Score <i class="fa-solid fa-sort"></i></th>
+                                    <th class="sortable" data-sort="Harga">Harga Terakhir <i class="fa-solid fa-sort"></i></th>
+                                    <th>MA50</th>
+                                    <th class="sortable" data-sort="Trx_Miliar">Nilai Trx (Miliar) <i class="fa-solid fa-sort"></i></th>
+                                    <th>Status Trend</th>
+                                </tr>
+                            </thead>
+                            <tbody id="table-body">
+                                <tr>
+                                    <td colspan="7" class="loading-row">Pilih tanggal untuk memuat rekomendasi...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+            </div>
+
+        </main>
+        
+    </div>
+
+    <!-- IMAGE LIGHTBOX / MODAL -->
+    <div id="image-modal" class="modal">
+        <span class="close-modal" id="close-modal">&times;</span>
+        <img class="modal-content" id="modal-img">
+        <div id="modal-caption"></div>
+    </div>
+
+    <!-- NOTIFICATION -->
+    <div id="notification-container" class="notification-container"></div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>

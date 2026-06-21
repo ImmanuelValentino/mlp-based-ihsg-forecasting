@@ -23,9 +23,15 @@ TICKER_FILE = 'ihsg_all.csv'
 MIN_PRICE = 51                  
 MIN_ADTV_BILLION = 1.0          
 
-today_str = datetime.datetime.now().strftime('%Y-%m-%d')
+import argparse
+_parser = argparse.ArgumentParser()
+_parser.add_argument('--date', type=str, default=None)
+_args, _ = _parser.parse_known_args()
+
+today_str = _args.date if _args.date else datetime.datetime.now().strftime('%Y-%m-%d')
 OUTPUT_DIR = f'outputs/{today_str}'
 os.makedirs(OUTPUT_DIR, exist_ok=True)
+
 
 def load_tickers(stock_num):
     try:

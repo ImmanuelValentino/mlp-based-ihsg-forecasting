@@ -11,7 +11,7 @@ warnings.filterwarnings('ignore')
 
 # --- KONFIGURASI ---
 START_DATE = '2020-01-01'
-END_DATE = '2026-05-29'
+END_DATE = '2026-06-11'
 SAVE_DIR = './dataset/IDX_ALL' # Folder terpisah untuk data full
 TICKER_FILE = 'ihsg_all.csv'
 CHUNK_SIZE = 50  # Batas aman request per batch
@@ -27,7 +27,9 @@ def compute_rsi(series, window=14):
     rsi = 100 - (100 / (1 + rs))
     return rsi
 
-def fetch_and_process_data():
+def fetch_and_process_data(end_date=None):
+    target_end_date = end_date if end_date else END_DATE
+    print(f"Target End Date untuk V1: {target_end_date}")
     if not os.path.exists(SAVE_DIR):
         os.makedirs(SAVE_DIR)
 
@@ -49,7 +51,7 @@ def fetch_and_process_data():
         
         try:
             # Unduh per batch
-            batch_data = yf.download(chunk, start=START_DATE, end=END_DATE, group_by='ticker', auto_adjust=False, progress=False)
+            batch_data = yf.download(chunk, start=START_DATE, end=target_end_date, group_by='ticker', auto_adjust=False, progress=False)
             
             # Gabungkan ke dataframe utama
             if all_raw_data.empty:
@@ -162,4 +164,12 @@ def fetch_and_process_data():
     print(f"\n[SUCCESS] Pipeline selesai! Bentuk Matriks EOD : {eod_data.shape}")
 
 if __name__ == "__main__":
-    fetch_and_process_data()
+    import argparse
+    import datetime
+    
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--end-date', type=str, default=None, help="End date for the dataset (YYYY-MM-DD)")
+    args = parser.parse_args()
+    
+    target_date = args.end_date if args.end_date else datetime.datetime.now().strftime('%Y-%m-%d')
+    fetch_and_process_data(target_date)

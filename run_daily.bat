@@ -26,3 +26,6 @@ echo ===================================================
 echo Selesai! Hasil tersimpan di folder outputs.
 echo ===================================================
 pause
+
+
+.\venv\Scripts\python.exe app.py
