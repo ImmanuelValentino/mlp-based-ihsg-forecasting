@@ -26,7 +26,7 @@ TICKER_FILE = os.path.join(base_dir, '..', 'ihsg_all.csv')
 
 # --- RISK MANAGEMENT ---
 MIN_PRICE = 51                  
-MIN_ADTV_BILLION = 1.0          
+MIN_ADTV_BILLION = 0.1          # Relaks dari 1.0 untuk mendapatkan lebih banyak rekomendasi          
 
 import argparse
 _parser = argparse.ArgumentParser()

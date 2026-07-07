@@ -232,7 +232,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Select and load specific date data
-    function selectHistoryDate(date) {
+    function selectHistoryDate(date, retryCount = 0) {
         state.selectedDate = date;
         
         // Update active class in sidebar list
@@ -257,13 +257,25 @@ document.addEventListener('DOMContentLoaded', () => {
                 return res.json();
             })
             .then(data => {
+                // Check if data is empty/invalid (files still being written)
+                if (!data.recommendations && !data.recommendations_v3) {
+                    throw new Error("Data rekomendasi kosong");
+                }
                 state.currentData = data;
                 renderData();
             })
             .catch(err => {
                 console.error("Gagal memuat detail output:", err);
-                tableBody.innerHTML = `<tr><td colspan="7" class="loading-row text-danger">Gagal memuat data tanggal ${date}. CSV mungkin kosong atau rusak.</td></tr>`;
-                showNotification('Error', `Gagal memuat data untuk tanggal ${date}.`, 'error');
+                
+                // Retry jika masih dalam tahap penulis file (maksimal 3x dengan delay)
+                if (retryCount < 3) {
+                    setTimeout(() => {
+                        selectHistoryDate(date, retryCount + 1);
+                    }, 500);
+                } else {
+                    tableBody.innerHTML = `<tr><td colspan="7" class="loading-row text-danger">Gagal memuat data tanggal ${date}. Pastikan pipeline telah selesai dengan sukses.</td></tr>`;
+                    showNotification('Error', `Gagal memuat data untuk tanggal ${date}.`, 'error');
+                }
             });
     }
 
@@ -319,6 +331,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         
         eventSource = new EventSource('/api/pipeline-logs');
+        let hasError = false;
         
         eventSource.onmessage = (event) => {
             const data = JSON.parse(event.data);
@@ -335,27 +348,35 @@ document.addEventListener('DOMContentLoaded', () => {
                     updatePipelineUI(true, stepName);
                 }
                 
-                if (data.finished) {
-                    handlePipelineFinished(true, targetDate);
+                // Check for actual errors (not just ERROR mentions)
+                if (data.log.includes('[ERROR]') || data.log.includes('EXCEPT:')) {
+                    hasError = true;
                 }
                 
-                if (data.log.includes('ERROR:')) {
-                    handlePipelineFinished(false, targetDate);
+                if (data.finished) {
+                    eventSource.close();
+                    handlePipelineFinished(!hasError, targetDate);
                 }
+            }
+            
+            if (data.heartbeat) {
+                // Heartbeat keep-alive, just continue
             }
         };
 
         eventSource.onerror = (err) => {
             console.error("SSE Error:", err);
-            // Cek apakah pipeline sudah selesai
-            fetch('/api/status')
-                .then(res => res.json())
-                .then(status => {
-                    if (!status.is_running) {
-                        eventSource.close();
-                        handlePipelineFinished(status.success, targetDate || status.date);
-                    }
-                });
+            // Cek apakah pipeline sudah selesai dengan delay kecil
+            setTimeout(() => {
+                fetch('/api/status')
+                    .then(res => res.json())
+                    .then(status => {
+                        if (!status.is_running) {
+                            if (eventSource) eventSource.close();
+                            handlePipelineFinished(status.success, targetDate || status.date);
+                        }
+                    });
+            }, 500);
         };
     }
 
@@ -370,8 +391,11 @@ document.addEventListener('DOMContentLoaded', () => {
         
         if (success) {
             showNotification('Selesai', `Pipeline selesai! Hasil tersimpan di outputs/${date}.`, 'success');
-            // Refresh history list and auto select the new date
-            fetchHistory(date);
+            // Add delay to ensure files are fully written to disk
+            setTimeout(() => {
+                // Refresh history list and auto select the new date
+                fetchHistory(date);
+            }, 1000);
         } else {
             showNotification('Gagal', `Pipeline gagal diproses. Silakan periksa konsol log.`, 'error');
         }
@@ -473,7 +497,22 @@ document.addEventListener('DOMContentLoaded', () => {
             visualPlaceholder.style.display = 'none';
             // Hindari caching gambar browser dengan menambahkan timestamp query param
             const imgSrc = `/api/visuals/${date}/${model}?t=${new Date().getTime()}`;
-            visualImgContainer.innerHTML = `<img src="${imgSrc}" alt="StockMixer ${model.toUpperCase()} Visual" title="Klik untuk memperbesar gambar">`;
+            
+            const img = document.createElement('img');
+            img.src = imgSrc;
+            img.alt = `StockMixer ${model.toUpperCase()} Visual`;
+            img.title = "Klik untuk memperbesar gambar";
+            img.onerror = function() {
+                this.style.display = 'none';
+                visualPlaceholder.style.display = 'block';
+                visualPlaceholder.innerHTML = `
+                    <i class="fa-solid fa-triangle-exclamation placeholder-icon text-danger"></i>
+                    <p>Gagal memuat gambar. File mungkin masih ditulis ke disk.</p>
+                `;
+            };
+            
+            visualImgContainer.innerHTML = '';
+            visualImgContainer.appendChild(img);
             btnZoomImage.style.display = 'flex';
         } else {
             visualImgContainer.innerHTML = '';

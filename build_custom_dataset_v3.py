@@ -7,9 +7,10 @@ import warnings
 
 warnings.filterwarnings('ignore')
 
-# Konfigurasi
-TICKER_FILE = 'ihsg_all.csv' 
-OUTPUT_DIR = 'dataset/IDX_ALL_V3'
+# Konfigurasi - use absolute paths
+base_dir = os.path.dirname(os.path.abspath(__file__))
+TICKER_FILE = os.path.join(base_dir, 'ihsg_all.csv')
+OUTPUT_DIR = os.path.join(base_dir, 'dataset', 'IDX_ALL_V3')
 START_DATE = '2018-01-01'
 END_DATE = '2026-06-11'
 
@@ -87,4 +88,4 @@ if __name__ == '__main__':
     
     # default to today's date if not passed
     target_date = args.end_date if args.end_date else datetime.datetime.now().strftime('%Y-%m-%d')
-    build_dataset_v3(target_date)
+    build_dataset_v3(target_date)

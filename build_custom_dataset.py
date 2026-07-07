@@ -12,8 +12,11 @@ warnings.filterwarnings('ignore')
 # --- KONFIGURASI ---
 START_DATE = '2020-01-01'
 END_DATE = '2026-06-11'
-SAVE_DIR = './dataset/IDX_ALL' # Folder terpisah untuk data full
-TICKER_FILE = 'ihsg_all.csv'
+
+# Use absolute paths to avoid working directory issues
+base_dir = os.path.dirname(os.path.abspath(__file__))
+SAVE_DIR = os.path.join(base_dir, 'dataset', 'IDX_ALL')
+TICKER_FILE = os.path.join(base_dir, 'ihsg_all.csv')
 CHUNK_SIZE = 50  # Batas aman request per batch
 SLEEP_TIME = 2   # Jeda 2 detik antar batch agar tidak di-banned YF
 

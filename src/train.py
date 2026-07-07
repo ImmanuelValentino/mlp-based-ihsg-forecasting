@@ -53,6 +53,8 @@ else:
         price_data = pickle.load(f).transpose(1, 0)
 
 trade_dates = mask_data.shape[1]
+stock_num = eod_data.shape[0]
+print(f"[INFO] Data siap! Jumlah Saham terdeteksi: {stock_num}")
 model = StockMixer(
     stocks=stock_num,
     time_steps=lookback_length,
